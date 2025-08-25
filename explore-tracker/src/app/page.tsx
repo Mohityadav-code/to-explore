@@ -31,6 +31,7 @@ import {
   Twitter,
 } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 
 type ExploreStatus = "PLANNED" | "IN_PROGRESS" | "EXPLORED" | "DREAM";
 
@@ -113,6 +114,9 @@ export default function Home() {
   const [status, setStatus] = useState<string>("");
   const [category, setCategory] = useState<string>("");
   const [onlyFav, setOnlyFav] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [tagFilter, setTagFilter] = useState("");
+  const [sort, setSort] = useState("newest");
 
   // form state
   const [title, setTitle] = useState("");
@@ -130,8 +134,11 @@ export default function Home() {
     if (status) sp.set("status", status);
     if (category) sp.set("category", category);
     if (onlyFav) sp.set("favorite", "true");
+    if (showArchived) sp.set("archived", "true");
+    if (tagFilter.trim()) sp.set("tag", tagFilter.trim());
+    if (sort) sp.set("sort", sort);
     return sp.toString();
-  }, [q, status, category, onlyFav]);
+  }, [q, status, category, onlyFav, showArchived, tagFilter, sort]);
 
   async function load() {
     setLoading(true);
@@ -321,6 +328,16 @@ export default function Home() {
     };
   }, [items]);
 
+  const chartData = useMemo(
+    () => [
+      { name: "Planned", value: stats.planned, color: "#64748b" },
+      { name: "In Progress", value: stats.inProgress, color: "#06b6d4" },
+      { name: "Explored", value: stats.explored, color: "#10b981" },
+      { name: "Dream", value: stats.dreams, color: "#a855f7" },
+    ],
+    [stats]
+  );
+
   // Get platform icon from URL
   function getPlatformIcon(url?: string | null) {
     if (!url) return Globe;
@@ -459,6 +476,49 @@ export default function Home() {
           ))}
         </motion.div>
 
+        {/* Status Chart */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mb-8 rounded-xl bg-white/10 backdrop-blur-md p-4"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-white/80">
+              <TrendingUp className="h-4 w-4" />
+              <span className="text-sm">Status distribution</span>
+            </div>
+          </div>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Tooltip
+                  contentStyle={{
+                    background: "#111827",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 8,
+                  }}
+                  formatter={(value: any, name: any) => [String(value), name]}
+                />
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  stroke="none"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
         {/* Filters */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -505,6 +565,16 @@ export default function Home() {
               ))}
             </select>
 
+            <div className="relative">
+              <Tag className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/50" />
+              <input
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                className="w-[160px] rounded-lg bg-white/10 pl-10 pr-3 py-2 text-white placeholder-white/50 backdrop-blur-sm transition-all focus:bg-white/20 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="Tag"
+              />
+            </div>
+
             <button
               onClick={() => setOnlyFav(!onlyFav)}
               className={cn(
@@ -517,6 +587,29 @@ export default function Home() {
               <Star className="h-4 w-4" />
               Favorites
             </button>
+
+            <button
+              onClick={() => setShowArchived(!showArchived)}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-4 py-2 transition-all",
+                showArchived
+                  ? "bg-slate-500/30 text-slate-200"
+                  : "bg-white/10 text-white/70 hover:bg-white/20"
+              )}
+            >
+              <Archive className="h-4 w-4" />
+              {showArchived ? "Showing Archived" : "Archived"}
+            </button>
+
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="rounded-lg bg-white/10 px-4 py-2 text-white backdrop-blur-sm transition-all focus:bg-white/20 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="title">Title</option>
+            </select>
           </div>
         </motion.div>
 
@@ -613,13 +706,15 @@ export default function Home() {
                       {item.tags.length > 0 && (
                         <div className="mb-3 flex flex-wrap gap-1">
                           {item.tags.map((t) => (
-                            <span
+                            <button
                               key={t.tag.id}
-                              className="inline-flex items-center gap-1 rounded-full bg-purple-500/20 px-2 py-0.5 text-xs text-purple-300"
+                              onClick={() => setTagFilter(t.tag.name)}
+                              className="inline-flex items-center gap-1 rounded-full bg-purple-500/20 px-2 py-0.5 text-xs text-purple-300 hover:bg-purple-500/30 transition-colors"
+                              title={`Filter by #${t.tag.name}`}
                             >
                               <Hash className="h-2.5 w-2.5" />
                               {t.tag.name}
-                            </span>
+                            </button>
                           ))}
                         </div>
                       )}
@@ -678,6 +773,25 @@ export default function Home() {
                             className="rounded-lg bg-purple-500/20 px-3 py-1 text-xs text-purple-300 transition-all hover:bg-purple-500/30"
                           >
                             Dream
+                          </button>
+                        )}
+                        {!item.isArchived ? (
+                          <button
+                            onClick={() =>
+                              updateItem(item.id, { isArchived: true })
+                            }
+                            className="rounded-lg bg-slate-500/20 px-3 py-1 text-xs text-slate-200 transition-all hover:bg-slate-500/30"
+                          >
+                            Archive
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              updateItem(item.id, { isArchived: false })
+                            }
+                            className="rounded-lg bg-blue-500/20 px-3 py-1 text-xs text-blue-300 transition-all hover:bg-blue-500/30"
+                          >
+                            Unarchive
                           </button>
                         )}
                         <button

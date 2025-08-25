@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
   const tag = searchParams.get("tag") ?? undefined; // single tag name
   const favorite = searchParams.get("favorite");
   const archived = searchParams.get("archived");
+  const sort = (searchParams.get("sort") ?? "newest").toLowerCase();
 
   const where: Prisma.ExploreItemWhereInput = {
     AND: [
@@ -38,6 +39,10 @@ export async function GET(req: NextRequest) {
     ],
   };
 
+  let orderBy: Prisma.ExploreItemOrderByWithRelationInput | Prisma.ExploreItemOrderByWithRelationInput[] = { createdAt: "desc" };
+  if (sort === "oldest") orderBy = { createdAt: "asc" };
+  else if (sort === "title") orderBy = { title: "asc" };
+
   const items = await prisma.exploreItem.findMany({
     where,
     include: {
@@ -45,7 +50,7 @@ export async function GET(req: NextRequest) {
       links: true,
       tags: { include: { tag: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy,
   });
   return NextResponse.json(items);
 }

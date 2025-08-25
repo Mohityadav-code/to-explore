@@ -5,7 +5,7 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
   const { id } = await context.params;
   const item = await prisma.exploreItem.findUnique({
     where: { id },
-    include: { links: true, tags: { include: { tag: true } } },
+    include: { links: true, tags: { include: { tag: true } }, category: true },
   });
   if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(item);
@@ -31,6 +31,23 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   if (!exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const updated = await prisma.$transaction(async (tx) => {
+    let categoryIdToSet: string | null | undefined = undefined;
+
+    // If the request explicitly contains a category field, resolve it
+    if (Object.prototype.hasOwnProperty.call(body ?? {}, "category")) {
+      if (typeof category === "string" && category.trim()) {
+        const c = await tx.category.upsert({
+          where: { name: category },
+          create: { name: category, description: `Auto-created category: ${category}` },
+          update: {},
+        });
+        categoryIdToSet = c.id;
+      } else {
+        // Explicitly clear category if empty string/null provided
+        categoryIdToSet = null;
+      }
+    }
+
     await tx.exploreItem.update({
       where: { id },
       data: {
@@ -39,7 +56,8 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         primaryUrl,
         notes,
         status,
-        category,
+        // Only write categoryId if it was explicitly provided in the body
+        ...(categoryIdToSet !== undefined ? { categoryId: categoryIdToSet } : {}),
         isFavorite,
         isArchived,
       },
@@ -77,7 +95,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
     return await tx.exploreItem.findUnique({
       where: { id },
-      include: { links: true, tags: { include: { tag: true } } },
+      include: { links: true, tags: { include: { tag: true } }, category: true },
     });
   });
 
