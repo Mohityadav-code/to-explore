@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum ExploreStatus {
+  PLANNED
+  IN_PROGRESS
+  EXPLORED
+  DREAM
+}
+
+model Category {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  items       ExploreItem[]
+}
+
+model ExploreItem {
+  id           String        @id @default(cuid())
+  title        String
+  description  String?
+  // main link (e.g., reel/video)
+  primaryUrl   String?
+  // free-form notes
+  notes        String?
+
+  status       ExploreStatus @default(PLANNED)
+  categoryId   String?
+  category     Category?     @relation(fields: [categoryId], references: [id])
+  isFavorite   Boolean       @default(false)
+  isArchived   Boolean       @default(false)
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  links        Link[]
+  tags         ExploreItemTag[]
+}
+
+model Link {
+  id          String       @id @default(cuid())
+  url         String
+  label       String?
+  kind        String?      // e.g., product, docs, repo
+  itemId      String
+  item        ExploreItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+}
+
+model Tag {
+  id          String            @id @default(cuid())
+  name        String            @unique
+  createdAt   DateTime          @default(now())
+  items       ExploreItemTag[]
+}
+
+model ExploreItemTag {
+  itemId   String
+  tagId    String
+  assignedAt DateTime @default(now())
+
+  item     ExploreItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag      Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+  @@index([tagId])
+}
